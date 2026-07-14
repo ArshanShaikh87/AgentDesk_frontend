@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import { Play, CheckCircle2, Clock, AlertCircle, RefreshCw, MessageSquare } from 'lucide-react';
 
 export default function Dashboard() {
@@ -7,10 +9,25 @@ export default function Dashboard() {
   const [selectedTask, setSelectedTask] = useState(null);
   const [responseInput, setResponseInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   const fetchTasks = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
     try {
-      const res = await fetch('http://localhost:3001/tasks');
+      const res = await fetch('http://localhost:3001/tasks', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem('token');
+          navigate('/login');
+        }
+        return;
+      }
       const data = await res.json();
       setTasks(data);
       if (selectedTask) {
@@ -24,8 +41,18 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchTasks();
-    const interval = setInterval(fetchTasks, 2000);
-    return () => clearInterval(interval);
+    
+    const token = localStorage.getItem('token');
+    const socket = io('http://localhost:3001');
+    if (token) {
+      socket.emit('authenticate', token);
+    }
+    
+    socket.on('task_update', () => {
+      fetchTasks();
+    });
+
+    return () => socket.disconnect();
   }, [selectedTask]);
 
   const handleCreateTask = async (e) => {
@@ -33,9 +60,13 @@ export default function Dashboard() {
     if (!newTaskDesc.trim()) return;
     setIsSubmitting(true);
     try {
+      const token = localStorage.getItem('token');
       await fetch('http://localhost:3001/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
         body: JSON.stringify({ description: newTaskDesc })
       });
       setNewTaskDesc('');
@@ -49,9 +80,13 @@ export default function Dashboard() {
   const handleRespond = async (taskId) => {
     if (!responseInput.trim()) return;
     try {
+      const token = localStorage.getItem('token');
       await fetch(`http://localhost:3001/tasks/${taskId}/respond`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({ response: responseInput })
       });
       setResponseInput('');
@@ -76,6 +111,13 @@ export default function Dashboard() {
     <div className="min-h-screen bg-bg flex flex-col font-sans">
       <header className="h-16 border-b border-border bg-surface flex items-center px-6">
         <h1 className="font-display font-semibold text-xl text-text-primary">NeverDesk Dashboard</h1>
+        <div className="ml-auto flex gap-4">
+          <button onClick={() => navigate('/settings')} className="text-sm font-medium text-text-secondary hover:text-text-primary">Settings</button>
+          <button onClick={() => {
+            localStorage.removeItem('token');
+            navigate('/login');
+          }} className="text-sm font-medium text-alert hover:opacity-80">Logout</button>
+        </div>
       </header>
 
       <div className="flex-1 flex overflow-hidden max-w-7xl mx-auto w-full">

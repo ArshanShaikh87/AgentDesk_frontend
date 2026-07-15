@@ -37,18 +37,24 @@ export default function Settings() {
     e.preventDefault();
     if (!apiKey.trim()) return;
 
+    // Quick format check before even hitting the server
+    if (!apiKey.startsWith('sk-ant-')) {
+      setStatus('Invalid format — Claude keys start with "sk-ant-"');
+      return;
+    }
+
     setStatus('Saving...');
     try {
       const token = localStorage.getItem('token');
       const res = await fetch('http://localhost:3001/settings/api-key', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({ apiKey })
       });
-      
+
       if (res.ok) {
         setStatus('Saved successfully!');
         setIsSaved(true);
@@ -90,8 +96,8 @@ export default function Settings() {
             <form onSubmit={handleSave} className="flex flex-col gap-4">
               <div>
                 <label className="block text-sm font-medium text-text-primary mb-1">Claude Code API Key</label>
-                <input 
-                  type="password" 
+                <input
+                  type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="sk-ant-..."
@@ -99,7 +105,9 @@ export default function Settings() {
                 />
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-text-secondary">{status}</span>
+                <span className={`text-sm font-medium ${status.toLowerCase().includes('invalid') || status.toLowerCase().includes('error') ? 'text-red-600' : 'text-text-secondary'}`}>
+                  {status}
+                </span>
                 <button type="submit" className="bg-accent text-white px-5 py-2 rounded-md font-medium text-sm hover:opacity-90">
                   Save API Key
                 </button>

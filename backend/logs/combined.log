@@ -3,3 +3,5 @@
 {"level":"info","message":"User logged in: arshanshaikh8793@gmail.com","service":"agentdesk-api","timestamp":"2026-07-15 12:19:22"}
 {"level":"info","message":"User logged in: arshanshaikh200@gmail.com","service":"agentdesk-api","timestamp":"2026-07-15 12:32:09"}
 {"level":"info","message":"User logged in: arshanshaikh200@gmail.com","service":"agentdesk-api","timestamp":"2026-07-15 12:32:27"}
+{"level":"info","message":"AgentDesk backend running on http://localhost:3001","service":"agentdesk-api","timestamp":"2026-07-15 13:28:13"}
+{"level":"info","message":"AgentDesk backend running on http://localhost:3001","service":"agentdesk-api","timestamp":"2026-07-15 15:05:30"}

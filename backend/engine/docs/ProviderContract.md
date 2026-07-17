@@ -170,3 +170,10 @@ Business Logic
 - version
 - status
 - error
+
+## Runtime State Rules
+
+- All mutable provider state must be stored inside `this.runtime`.
+- Static provider metadata belongs in the constructor.
+- Runtime fields must have a single owning method.
+- Methods that compute runtime information should persist it before returning.

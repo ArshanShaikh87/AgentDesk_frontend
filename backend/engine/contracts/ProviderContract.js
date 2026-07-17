@@ -104,6 +104,36 @@ class ProviderContract {
                 );
 
         }
+
+
+        /**
+   * start()
+   *
+   * Purpose: "Provider ka CLI process shuru karo."
+   *
+   * Responsibility: sirf process launch karna. Prompt kaise bhejna hai,
+   * output kaise read karna hai, session kaise maintain hoga, ya
+   * streaming kaise hogi — ye sab future contracts/tasks hain, is
+   * method ka scope nahi.
+   *
+   * Async hai — process spawn karna inherently ek async operation hai.
+   *
+   * Contract: ye method KABHI exception throw nahi karega. Har provider
+   * apni implementation me errors ko catch karke is shape me return karega:
+   *
+   *   {
+   *     started: boolean,
+   *     error: string|null
+   *   }
+   *
+   * Ye base class implementation abstract placeholder hai — har subclass
+   * ko ise apna override karna hi hoga.
+   */
+        async start() {
+                throw new Error(
+                        `${this.constructor.name} must implement the async start() method.`
+                );
+        }
 }
 
 module.exports = ProviderContract;

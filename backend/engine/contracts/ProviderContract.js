@@ -74,6 +74,36 @@ class ProviderContract {
                         `${this.constructor.name} must implement the async detect() method.`
                 );
         }
+
+        /**
+  * getVersion()
+  *
+  * Purpose: "Agar main installed hoon, to meri version kya hai?"
+  *
+  * Ye method sirf tab call kiya jaana chahiye jab detect() se
+  * installed: true mile — uninstalled provider ki version nikalna
+  * unnecessary process execution hai.
+  *
+  * Async hai — jaisa detect() me tha, kyunki underlying implementation
+  * ek CLI command (e.g. `claude --version`) chalayegi.
+  *
+  * Contract: ye method KABHI exception throw nahi karega. Har provider
+  * apni implementation me errors ko catch karke is shape me return karega:
+  *
+  *   {
+  *     version: string|null,
+  *     error: string|null
+  *   }
+  *
+  * Ye base class implementation abstract placeholder hai — har subclass
+  * ko ise apna override karna hi hoga.
+  */
+        async getVersion() {
+                throw new Error(
+                        `${this.constructor.name} must implement the async getVersion() method.`
+                );
+
+        }
 }
 
 module.exports = ProviderContract;

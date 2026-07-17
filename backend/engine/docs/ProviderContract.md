@@ -162,3 +162,11 @@ Database Schema
 Queue Implementation
 WebSocket Protocol
 Business Logic
+
+14. Runtime Information
+
+- installed
+- executablePath
+- version
+- status
+- error

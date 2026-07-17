@@ -71,6 +71,36 @@ class ClaudeProvider extends ProviderContract {
                         });
                 });
         }
+
+
+        /**
+   * getVersion()
+   *
+   * Precondition: detect().installed === true
+   * Isliye ye method detect() ko dobara call nahi karta.
+   *
+   * Never throws — always resolves to { version, error }.
+   */
+        async getVersion() {
+                return new Promise((resolve) => {
+                        exec(`${this.executable} --version`, (err, stdout) => {
+                                if (err) {
+                                        resolve({
+                                                version: null,
+                                                error: err.message || 'Unable to determine version',
+                                        });
+                                        return;
+                                }
+
+                                const version = stdout.trim();
+
+                                resolve({
+                                        version,
+                                        error: null,
+                                });
+                        });
+                });
+        }
 }
 
 module.exports = ClaudeProvider;

@@ -247,7 +247,7 @@ class ClaudeProvider extends ProviderContract {
                         // emitting 'error' — guard so we still resolve deterministically.
                         try {
                                 child.kill();
-                        } catch (err) {
+                        } catch (err) { 
                                 child.removeAllListeners();
                                 this.runtime.process = null;
 

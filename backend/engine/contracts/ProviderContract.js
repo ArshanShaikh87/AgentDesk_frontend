@@ -134,6 +134,60 @@ class ProviderContract {
                         `${this.constructor.name} must implement the async start() method.`
                 );
         }
+
+
+        /**
+   * send(request)
+   *
+   * Purpose: "Provider ko ek request bhejo aur uska complete response wapas lo."
+   *
+   * Precondition: provider must already be running (i.e. start() successfully
+   * called before this). send() will NEVER attempt to start the provider
+   * itself — lifecycle ownership belongs entirely to the Engine, not the
+   * Provider. If this precondition is not met, the implementation must
+   * resolve with an error, not throw.
+   *
+   * Request shape:
+   *
+   *   {
+   *     prompt: string
+   *   }
+   *
+   * This object is additive-safe — future capabilities (system prompt,
+   * conversation history, attachments, tool results) will be added as new
+   * fields alongside `prompt`, never by changing its type or meaning.
+   *
+   * Async hai — communication with the underlying provider is inherently
+   * an async operation (process I/O, network call, etc.).
+   *
+   * Contract: ye method KABHI exception throw nahi karega. Har provider
+   * apni implementation me errors ko catch karke is shape me return karega:
+   *
+   *   {
+   *     response: string|null,
+   *     error: string|null
+   *   }
+   *
+   * Behaviour rules:
+   *  - Never throws.
+   *  - Resolves only with the COMPLETE response — not partial or streamed
+   *    chunks. Streaming is explicitly out of scope for this method and,
+   *    if ever needed, will be exposed via a separate method (e.g.
+   *    stream() / sendStream()) rather than changing this contract.
+   *  - A provider instance handles ONE active send() at a time. If a
+   *    second send() is called while one is already in progress, the
+   *    implementation must resolve with
+   *    { response: null, error: "Provider is busy." } rather than
+   *    queueing or running concurrently.
+   *
+   * Ye base class implementation abstract placeholder hai — har subclass
+   * ko ise apna override karna hi hoga.
+   */
+        async send(request) {
+                throw new Error(
+                        `${this.constructor.name} must implement the async send() method.`
+                );
+        }
 }
 
 module.exports = ProviderContract;

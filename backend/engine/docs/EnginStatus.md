@@ -356,3 +356,220 @@ Regression: 🟢 Passing
 Architecture: 🟢 Frozen (Foundation Phase Complete)
 
 Yeh ek achha checkpoint hai jahan se confidently next milestone start kiya ja sakta hai.
+
+# Milestone 5 – Provider Communication
+
+**Status:** ✅ Completed (Implementation)  
+**Integration Status:** ⏳ Pending (Authentication Required)
+
+---
+
+## Objective
+
+Implement a provider-agnostic communication layer that allows the Engine to send prompts to any provider through a unified contract.
+
+This milestone establishes the foundation for all current and future providers (Claude, Codex, Gemini, etc.) while keeping the Engine independent of provider-specific implementations.
+
+---
+
+# Scope
+
+The following functionality was implemented during this milestone:
+
+- Provider communication contract
+- `send(request)` implementation
+- Request validation
+- Busy-state management
+- Claude CLI command execution
+- JSON response parsing
+- Session management
+- Resume support
+- Error handling
+- Runtime state management
+
+---
+
+# Provider Contract
+
+```javascript
+async send(request)
+```
+
+Request:
+
+```javascript
+{
+    prompt
+}
+```
+
+Response:
+
+```javascript
+{
+    response,
+    error
+}
+```
+
+The method never throws exceptions. All failures are returned through the `error` field.
+
+---
+
+# Implemented Features
+
+## Request Validation
+
+- Provider must be running before processing requests.
+- Prompt validation is performed before execution.
+- Invalid requests return structured errors.
+
+---
+
+## Busy State
+
+Only one request can be processed at a time.
+
+If another request arrives while processing:
+
+```javascript
+{
+    response: null,
+    error: "Provider is busy."
+}
+```
+
+---
+
+## Claude CLI Integration
+
+Claude commands are executed through a dedicated private helper.
+
+```
+_executeClaudeCommand(args)
+```
+
+Responsibilities:
+
+- Spawn CLI process
+- Capture stdout
+- Capture stderr
+- Capture exit code
+- Capture spawn errors
+- Never throw exceptions
+
+---
+
+## Session Management
+
+Successful responses capture the Claude session ID.
+
+First request:
+
+```
+claude -p "<prompt>" --output-format json
+```
+
+Subsequent requests:
+
+```
+claude -p "<prompt>" --resume <session_id> --output-format json
+```
+
+The session ID remains provider-private and is never exposed through the runtime.
+
+---
+
+## Runtime Management
+
+Provider runtime contains only observable provider state.
+
+```javascript
+runtime = {
+    installed,
+    executablePath,
+    version,
+    busy
+}
+```
+
+Private provider state:
+
+```javascript
+this._process
+this._sessionId
+```
+
+This follows the architecture decisions defined in ADR-004 and ADR-005.
+
+---
+
+# Error Handling
+
+The implementation returns structured errors for:
+
+- Provider not running
+- Provider busy
+- Invalid request
+- Spawn failures
+- Command execution failures
+- JSON parsing failures
+- Claude CLI reported errors
+
+No exceptions are propagated outside the provider.
+
+---
+
+# Regression Testing
+
+Completed regression tests:
+
+- ✅ Provider Registration
+- ✅ Provider Detection
+- ✅ Provider Version
+- ✅ Provider Start
+- ✅ Provider Stop
+- ✅ Provider Communication (implementation)
+
+---
+
+# Current Limitation
+
+Live communication with Claude CLI requires authentication.
+
+Current environment:
+
+- Claude CLI installed
+- Provider implementation verified
+- Authentication unavailable
+
+Manual CLI execution returns:
+
+```
+Not logged in · Please run /login
+```
+
+This is an external authentication requirement and not an implementation failure.
+
+---
+
+# Final Status
+
+| Component | Status |
+|----------|--------|
+| Architecture | ✅ Complete |
+| Implementation | ✅ Complete |
+| Unit Regression | ✅ Complete |
+| Integration Testing | ⏳ Pending (Authentication Required) |
+
+---
+
+# Conclusion
+
+Milestone 5 successfully establishes the provider communication layer for AgentDesk.
+
+The communication architecture, provider contract, request pipeline, session management, and runtime behavior have been fully implemented and verified through regression testing.
+
+Live integration with Claude CLI remains pending due to an external authentication requirement and does not affect the implementation or architecture.
+
+The project is now ready to continue with the Engine layer, where the Engine will orchestrate providers through the unified communication contract.

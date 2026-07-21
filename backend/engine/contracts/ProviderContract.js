@@ -188,6 +188,39 @@ class ProviderContract {
                         `${this.constructor.name} must implement the async send() method.`
                 );
         }
+
+
+        /**
+   * stop()
+   *
+   * Purpose: "Release any resources the provider is holding for
+   * communication."
+   *
+   * ADR-004: what gets released is entirely provider-specific (a spawned
+   * process, an HTTP connection, nothing at all for an inherently one-shot
+   * provider). A no-op implementation that simply resolves
+   * { stopped: false, error: "Provider is not running." } is valid when
+   * there is nothing to release.
+   *
+   * Async hai — releasing resources may be an async operation (waiting
+   * for a process to actually exit, closing a connection, etc.).
+   *
+   * Contract: ye method KABHI exception throw nahi karega. Har provider
+   * apni implementation me errors ko catch karke is shape me return karega:
+   *
+   *   {
+   *     stopped: boolean,
+   *     error: string|null
+   *   }
+   *
+   * Ye base class implementation abstract placeholder hai — har subclass
+   * ko ise apna override karna hi hoga.
+   */
+        async stop() {
+                throw new Error(
+                        `${this.constructor.name} must implement the async stop() method.`
+                );
+        }
 }
 
 module.exports = ProviderContract;

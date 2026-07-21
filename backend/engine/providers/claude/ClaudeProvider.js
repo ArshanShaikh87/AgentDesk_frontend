@@ -31,8 +31,12 @@ class ClaudeProvider extends ProviderContract {
                         installed: false,
                         executablePath: null,
                         version: null,
-                        process: null,
+                        busy: false,
                 };
+
+                // Private provider state
+                this._process = null;
+                this._sessionId = null;
         }
 
         /**
@@ -178,7 +182,8 @@ class ClaudeProvider extends ProviderContract {
                                 const child = spawn(command, args, options);
 
                                 child.once('error', (err) => {
-                                        this.runtime.process = null;
+                                        //this.runtime.process = null;
+                                        this._process = null;
 
                                         resolve({
                                                 started: false,
@@ -187,15 +192,16 @@ class ClaudeProvider extends ProviderContract {
                                 });
 
                                 child.once('spawn', () => {
-                                        this.runtime.process = child;
-
+                                        //this.runtime.process = child;
+                                        this._process = child;
                                         resolve({
                                                 started: true,
                                                 error: null,
                                         });
                                 });
                         } catch (err) {
-                                this.runtime.process = null;
+                                //this.runtime.process = null;
+                                this._process = null;
 
                                 resolve({
                                         started: false,
@@ -219,7 +225,8 @@ class ClaudeProvider extends ProviderContract {
           */
         async stop() {
                 return new Promise((resolve) => {
-                        const child = this.runtime.process;
+                        //const child = this.runtime.process;
+                        const child = this._process;
 
                         if (!child) {
                                 resolve({
@@ -232,7 +239,8 @@ class ClaudeProvider extends ProviderContract {
                         // Cleanup + resolve happens exactly once, however the process ends.
                         const finalize = () => {
                                 child.removeAllListeners();
-                                this.runtime.process = null;
+                                //this.runtime.process = null;
+                                this._process = null;
 
                                 resolve({
                                         stopped: true,
@@ -247,9 +255,10 @@ class ClaudeProvider extends ProviderContract {
                         // emitting 'error' — guard so we still resolve deterministically.
                         try {
                                 child.kill();
-                        } catch (err) { 
+                        } catch (err) {
                                 child.removeAllListeners();
-                                this.runtime.process = null;
+                                //this.runtime.process = null;
+                                this._process = null;
 
                                 resolve({
                                         stopped: false,
@@ -257,6 +266,199 @@ class ClaudeProvider extends ProviderContract {
                                 });
                         }
                 });
+        }
+
+        /**
+   * _executeClaudeCommand(args)
+   *
+   * PRIVATE. Runs a one-shot `claude` invocation with the given args and
+   * collects its stdout/stderr/exit code. This is distinct from
+   * _resolveLaunchStrategy() (used by start()) — this helper is for
+   * send()'s request/response CLI calls (`claude -p ...`), not for
+   * launching a long-running process.
+   *
+   * Never throws — always resolves to
+   * { stdout, stderr, exitCode, spawnError }.
+   */
+        _executeClaudeCommand(args) {
+                return new Promise((resolve) => {
+
+                        const isWindows = os.platform() === 'win32';
+
+                        const command = isWindows
+                                ? this.executable
+                                : this.runtime.executablePath || this.executable;
+
+                        const options = isWindows
+                                ? { shell: true }
+                                : {};
+
+                        let child;
+
+                        try {
+                                child = spawn(command, args, options);
+                        } catch (err) {
+                                resolve({
+                                        stdout: '',
+                                        stderr: '',
+                                        exitCode: null,
+                                        spawnError: err
+                                });
+                                return;
+                        }
+
+                        let stdout = '';
+                        let stderr = '';
+
+                        let finished = false;
+
+                        function finish(result) {
+                                if (finished) {
+                                        return;
+                                }
+
+                                finished = true;
+                                resolve(result);
+                        }
+
+                        child.stdout.on('data', (chunk) => {
+                                stdout += chunk.toString();
+                        });
+
+                        child.stderr.on('data', (chunk) => {
+                                stderr += chunk.toString();
+                        });
+
+                        child.once('error', (err) => {
+                                finish({
+                                        stdout,
+                                        stderr,
+                                        exitCode: null,
+                                        spawnError: err
+                                });
+                        });
+
+                        child.once('close', (exitCode) => {
+                                finish({
+                                        stdout,
+                                        stderr,
+                                        exitCode,
+                                        spawnError: null
+                                });
+                        });
+
+                });
+        }
+        // TODO:
+        // Replace _process readiness check once start()/stop()
+        // are refactored to the provider-agnostic lifecycle model.
+
+        /**
+         * send(request)
+         *
+         * Precondition: provider must already be "running" — for this one-shot
+         * CLI provider, that's represented by this._process (start() having
+         * succeeded), NOT a persistent communication channel to that process.
+         *
+         * Each call spawns its own one-shot `claude -p` invocation; conversation
+         * continuity across calls is carried by the private _sessionId field via
+         * `--resume`, per the frozen invocation contract.
+         *
+         * busy is always cleared in a finally block — even if something inside
+         * throws unexpectedly — so the provider never gets stuck permanently busy.
+         *
+         * Never throws — always resolves to { response, error }.
+         */
+        async send(request) {
+                if (!this._process) {
+                        return { response: null, error: 'Provider is not running.' };
+                }
+
+                if (this.runtime.busy) {
+                        return { response: null, error: 'Provider is busy.' };
+                }
+
+                //const prompt = request && request.prompt;
+                const prompt = request?.prompt;
+                if (typeof prompt !== 'string' || prompt.trim().length === 0) {
+                        return { response: null, error: 'Invalid prompt.' };
+                }
+
+                this.runtime.busy = true;
+
+                try {
+                        //const args = ['-p', prompt];
+                        const args = [
+                                '-p',
+                                prompt,
+                                ...(this._sessionId ? ['--resume', this._sessionId] : []),
+                                '--output-format',
+                                'json'
+                        ];
+
+                        // if (this._sessionId) {
+                        //         args.push('--resume', this._sessionId);
+                        // }
+
+                        //args.push('--output-format', 'json');
+
+                        const { stdout, stderr, exitCode, spawnError } = await this._executeClaudeCommand(args);
+
+                        if (spawnError) {
+                                return {
+                                        response: null,
+                                        error: spawnError.message || `Failed to run ${this.name}.`,
+                                };
+                        }
+
+                        if (exitCode !== 0) {
+                                return {
+                                        response: null,
+                                        error: stderr.trim() || `${this.name} exited with code ${exitCode}.`,
+                                };
+                        }
+
+                        let parsed;
+                        try {
+                                parsed = JSON.parse(stdout);
+                        } catch (parseErr) {
+                                return {
+                                        response: null,
+                                        //error: 'Failed to parse Claude response.',
+                                        error: `Failed to parse Claude response: ${parseErr.message}`
+                                };
+                        }
+
+                        if (parsed.session_id) {
+                                this._sessionId = parsed.session_id;
+                        }
+
+                        if (!parsed || typeof parsed !== "object") {
+                                return {
+                                        response: null,
+                                        error: "Claude returned an invalid JSON response."
+                                };
+                        }
+
+                        if (typeof parsed.result !== "string") {
+                                return {
+                                        response: null,
+                                        error: "Claude returned an invalid response."
+                                };
+                        }
+
+                        return {
+                                response: parsed.result ?? null,
+                                error: null,
+                        };
+                } catch (err) {
+                        return {
+                                response: null,
+                                error: err.message || `Failed to communicate with ${this.name}.`,
+                        };
+                } finally {
+                        this.runtime.busy = false;
+                }
         }
 
 
